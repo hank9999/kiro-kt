@@ -99,109 +99,90 @@ class FrameParser {
      * @return 解析出的帧，如果数据不完整则返回 null
      */
     private fun tryParseFrame(): Frame? {
-        // 切换到读取模式
         buffer.flip()
-
         try {
-            when (state) {
-                State.AWAITING_PRELUDE -> {
-                    if (buffer.remaining() < Frame.PRELUDE_LENGTH) {
-                        return null
+            while (true) {
+                when (state) {
+                    State.AWAITING_PRELUDE -> {
+                        if (buffer.remaining() < Frame.PRELUDE_LENGTH) return null
+
+                        val preludeStart = buffer.position()
+                        totalLength = buffer.int
+                        headerLength = buffer.int
+                        val preludeCrc = buffer.int.toLong() and 0xFFFFFFFFL
+
+                        if (totalLength < Frame.MIN_MESSAGE_LENGTH || totalLength > Frame.MAX_MESSAGE_LENGTH) {
+                            errorCount++
+                            throw ParseException("Invalid message length: $totalLength")
+                        }
+                        if (headerLength < 0 || headerLength > totalLength - Frame.PRELUDE_LENGTH - Frame.MESSAGE_CRC_LENGTH) {
+                            errorCount++
+                            throw ParseException("Invalid header length: $headerLength")
+                        }
+
+                        val preludeData = ByteArray(8)
+                        val savedPos = buffer.position()
+                        buffer.position(preludeStart)
+                        buffer.get(preludeData)
+                        buffer.position(savedPos) // 回到读完 prelude 的位置（preludeStart+12）
+
+                        val computedPreludeCrc = Crc32.compute(preludeData)
+                        if (computedPreludeCrc != preludeCrc) {
+                            errorCount++
+                            throw ParseException("Prelude CRC mismatch: expected $preludeCrc, got $computedPreludeCrc")
+                        }
+
+                        state = State.AWAITING_DATA
+                        // 关键：继续 while，让同一次调用直接进入 AWAITING_DATA
+                        continue
                     }
 
-                    // 读取 Prelude
-                    val preludeStart = buffer.position()
-                    totalLength = buffer.int
-                    headerLength = buffer.int
-                    val preludeCrc = buffer.int.toLong() and 0xFFFFFFFFL
+                    State.AWAITING_DATA -> {
+                        val remainingLength = totalLength - Frame.PRELUDE_LENGTH
+                        if (buffer.remaining() < remainingLength) return null
 
-                    // 验证长度
-                    if (totalLength < Frame.MIN_MESSAGE_LENGTH || totalLength > Frame.MAX_MESSAGE_LENGTH) {
-                        errorCount++
-                        throw ParseException("Invalid message length: $totalLength")
+                        val messageStart = buffer.position() - Frame.PRELUDE_LENGTH // 此时 position 已在 prelude 后面，所以 >= 0
+                        val messageData = ByteArray(totalLength - Frame.MESSAGE_CRC_LENGTH)
+
+                        val savedPosition = buffer.position()
+                        buffer.position(messageStart)
+                        buffer.get(messageData)
+                        buffer.position(savedPosition)
+
+                        val headersData = ByteArray(headerLength)
+                        buffer.get(headersData)
+
+                        val payloadLength = totalLength - Frame.PRELUDE_LENGTH - headerLength - Frame.MESSAGE_CRC_LENGTH
+                        val payload = ByteArray(payloadLength)
+                        buffer.get(payload)
+
+                        val messageCrc = buffer.int.toLong() and 0xFFFFFFFFL
+                        val computedMessageCrc = Crc32.compute(messageData)
+                        if (computedMessageCrc != messageCrc) {
+                            errorCount++
+                            throw ParseException("Message CRC mismatch: expected $messageCrc, got $computedMessageCrc")
+                        }
+
+                        val headers = HeaderParser.parseHeaders(headersData).getOrElse {
+                            errorCount++
+                            Headers.EMPTY
+                        }
+
+                        state = State.AWAITING_PRELUDE
+                        totalLength = 0
+                        headerLength = 0
+
+                        return Frame(headers, payload)
                     }
 
-                    if (headerLength < 0 || headerLength > totalLength - Frame.PRELUDE_LENGTH - Frame.MESSAGE_CRC_LENGTH) {
-                        errorCount++
-                        throw ParseException("Invalid header length: $headerLength")
-                    }
-
-                    // 验证 Prelude CRC
-                    val preludeData = ByteArray(8)
-                    buffer.position(preludeStart)
-                    buffer.get(preludeData)
-                    buffer.position(preludeStart + Frame.PRELUDE_LENGTH) // 跳过 CRC
-
-                    val computedPreludeCrc = Crc32.compute(preludeData)
-                    if (computedPreludeCrc != preludeCrc) {
-                        errorCount++
-                        throw ParseException("Prelude CRC mismatch: expected $preludeCrc, got $computedPreludeCrc")
-                    }
-
-                    state = State.AWAITING_DATA
-                }
-
-                State.AWAITING_DATA -> {
-                    // 计算剩余需要的数据量
-                    val remainingLength = totalLength - Frame.PRELUDE_LENGTH
-                    if (buffer.remaining() < remainingLength) {
-                        return null
-                    }
-
-                    // 提取消息数据（用于 CRC 校验）
-                    val messageStart = buffer.position() - Frame.PRELUDE_LENGTH
-                    val messageData = ByteArray(totalLength - Frame.MESSAGE_CRC_LENGTH)
-
-                    // 临时回退以获取完整消息（包括 prelude）
-                    val savedPosition = buffer.position()
-                    buffer.position(messageStart)
-                    buffer.get(messageData)
-                    buffer.position(savedPosition)
-
-                    // 读取头部
-                    val headersData = ByteArray(headerLength)
-                    buffer.get(headersData)
-
-                    // 读取载荷
-                    val payloadLength = totalLength - Frame.PRELUDE_LENGTH - headerLength - Frame.MESSAGE_CRC_LENGTH
-                    val payload = ByteArray(payloadLength)
-                    buffer.get(payload)
-
-                    // 读取并验证 Message CRC
-                    val messageCrc = buffer.int.toLong() and 0xFFFFFFFFL
-                    val computedMessageCrc = Crc32.compute(messageData)
-                    if (computedMessageCrc != messageCrc) {
-                        errorCount++
-                        throw ParseException("Message CRC mismatch: expected $messageCrc, got $computedMessageCrc")
-                    }
-
-                    // 解析头部
-                    val headers = HeaderParser.parseHeaders(headersData).getOrElse {
-                        errorCount++
-                        // 头部解析失败时使用空头部，避免丢失 payload
-                        Headers.EMPTY
-                    }
-
-                    // 重置状态
-                    state = State.AWAITING_PRELUDE
-                    totalLength = 0
-                    headerLength = 0
-
-                    return Frame(headers, payload)
-                }
-
-                State.COMPLETE -> {
-                    // 不应该到达这里
-                    return null
+                    State.COMPLETE -> return null
                 }
             }
         } finally {
-            // 切换回写入模式，保留未处理的数据
             buffer.compact()
         }
-
-        return null
     }
+
 
     /**
      * 确保缓冲区有足够的容量
