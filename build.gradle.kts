@@ -3,6 +3,9 @@ val kotlinVersion: String by project
 val exposedVersion: String by project
 val postgresqlVersion: String by project
 val hikariVersion: String by project
+val slf4jVersion: String by project
+val log4jVersion: String by project
+val jansiVersion: String by project
 
 plugins {
     kotlin("jvm") version "2.2.21"
@@ -36,6 +39,12 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-kotlin-datetime:${exposedVersion}")
     implementation("org.postgresql:postgresql:${postgresqlVersion}")
     implementation("com.zaxxer:HikariCP:${hikariVersion}")
+
+    // 日志
+    implementation("org.slf4j:slf4j-api:$slf4jVersion")
+    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:$log4jVersion")
+    implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+    implementation("org.fusesource.jansi:jansi:$jansiVersion")
 }
 
 tasks.register<JavaExec>("runDecoder") {
