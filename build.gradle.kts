@@ -37,3 +37,10 @@ dependencies {
     implementation("org.postgresql:postgresql:${postgresqlVersion}")
     implementation("com.zaxxer:HikariCP:${hikariVersion}")
 }
+
+tasks.register<JavaExec>("runDecoder") {
+    mainClass.set("model.kiro.events.RunDecoderLocal")
+    classpath = sourceSets["main"].runtimeClasspath
+
+    standardInput = System.`in`
+}
