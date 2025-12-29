@@ -1,6 +1,5 @@
 package model.kiro.events
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -24,31 +23,7 @@ data class AssistantResponseEvent(
     val contentType: ContentType? = null,
 
     /** 消息状态 */
-    val messageStatus: MessageStatus? = null,
-
-    /** 补充网页链接列表 */
-    val supplementaryWebLinks: List<SupplementaryWebLink>? = null,
-
-    /** 引用来源列表 */
-    val references: List<CodeReference>? = null,
-
-    /** 代码引用列表 */
-    val codeReference: List<CodeReference>? = null,
-
-    /** 后续提示建议 */
-    val followupPrompt: FollowupPrompt? = null,
-
-    /** 编程语言信息 */
-    val programmingLanguage: ProgrammingLanguage? = null,
-
-    /** 自定义模型配置 */
-    val customizations: List<Customization>? = null,
-
-    /** 用户意图分类 */
-    val userIntent: UserIntent? = null,
-
-    /** 代码查询信息 */
-    val codeQuery: CodeQuery? = null
+    val messageStatus: MessageStatus? = null
 ) {
     /**
      * 检查消息是否已完成

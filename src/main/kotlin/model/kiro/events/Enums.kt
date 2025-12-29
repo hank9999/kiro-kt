@@ -22,8 +22,6 @@ enum class EventType(val value: String) {
     @SerialName("toolUseEvent") TOOL_USE("toolUseEvent"),
     @SerialName("meteringEvent") METERING("meteringEvent"),
     @SerialName("contextUsageEvent") CONTEXT_USAGE("contextUsageEvent"),
-    @SerialName("completion") COMPLETION("completion"),
-    @SerialName("completion_chunk") COMPLETION_CHUNK("completion_chunk"),
     @SerialName("tool_call_request") TOOL_CALL_REQUEST("tool_call_request"),
     @SerialName("tool_call_error") TOOL_CALL_ERROR("tool_call_error"),
     @SerialName("session_start") SESSION_START("session_start"),
@@ -55,18 +53,4 @@ enum class MessageStatus {
     @SerialName("COMPLETED") COMPLETED,
     @SerialName("IN_PROGRESS") IN_PROGRESS,
     @SerialName("ERROR") ERROR
-}
-
-/**
- * 用户意图分类
- */
-@Serializable
-enum class UserIntent(val value: String) {
-    @SerialName("EXPLAIN_CODE_SELECTION") EXPLAIN_CODE_SELECTION("EXPLAIN_CODE_SELECTION"),
-    @SerialName("SUGGEST_ALTERNATE_IMPLEMENTATION") SUGGEST_ALTERNATE_IMPLEMENTATION("SUGGEST_ALTERNATE_IMPLEMENTATION"),
-    @SerialName("APPLY_COMMON_BEST_PRACTICES") APPLY_COMMON_BEST_PRACTICES("APPLY_COMMON_BEST_PRACTICES"),
-    @SerialName("IMPROVE_CODE") IMPROVE_CODE("IMPROVE_CODE"),
-    @SerialName("SHOW_EXAMPLES") SHOW_EXAMPLES("SHOW_EXAMPLES"),
-    @SerialName("CITE_SOURCES") CITE_SOURCES("CITE_SOURCES"),
-    @SerialName("EXPLAIN_LINE_BY_LINE") EXPLAIN_LINE_BY_LINE("EXPLAIN_LINE_BY_LINE")
 }

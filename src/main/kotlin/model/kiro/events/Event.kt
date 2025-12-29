@@ -16,8 +16,6 @@ import kotlinx.serialization.json.JsonObject
  *   │     ├─ :event-type = "toolUseEvent"           → ToolUse
  *   │     ├─ :event-type = "meteringEvent"          → Metering
  *   │     ├─ :event-type = "contextUsageEvent"      → ContextUsage
- *   │     ├─ :event-type = "completion"             → Completion
- *   │     ├─ :event-type = "completion_chunk"       → CompletionChunk
  *   │     ├─ :event-type = "tool_call_request"      → ToolCallRequest
  *   │     ├─ :event-type = "tool_call_error"        → ToolCallError
  *   │     ├─ :event-type = "session_start"          → SessionStart
@@ -62,22 +60,6 @@ sealed class Event {
     @Serializable
     data class ContextUsage(val data: ContextUsageEvent) : Event() {
         override val eventType: EventType = EventType.CONTEXT_USAGE
-    }
-
-    /**
-     * 代码补全事件
-     */
-    @Serializable
-    data class Completion(val data: CompletionEvent) : Event() {
-        override val eventType: EventType = EventType.COMPLETION
-    }
-
-    /**
-     * 流式补全片段事件
-     */
-    @Serializable
-    data class CompletionChunk(val data: CompletionChunkEvent) : Event() {
-        override val eventType: EventType = EventType.COMPLETION_CHUNK
     }
 
     /**
