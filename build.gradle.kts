@@ -39,7 +39,7 @@ dependencies {
 }
 
 tasks.register<JavaExec>("runDecoder") {
-    mainClass.set("model.kiro.events.RunDecoderLocal")
+    mainClass.set("com.github.hank9999.model.kiro.events.RunDecoderLocal")
     classpath = sourceSets["main"].runtimeClasspath
 
     standardInput = System.`in`

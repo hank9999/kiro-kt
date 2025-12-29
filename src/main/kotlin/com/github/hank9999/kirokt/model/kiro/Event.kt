@@ -1,4 +1,4 @@
-package model.kiro.events.model
+package com.github.hank9999.kirokt.model.kiro
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject

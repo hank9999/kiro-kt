@@ -1,4 +1,4 @@
-package config
+package com.github.hank9999.kirokt.config
 
 import kotlinx.serialization.Serializable
 

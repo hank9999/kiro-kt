@@ -1,7 +1,7 @@
-package utils
+package com.github.hank9999.kirokt.utils
 
-import config.AppConfig
-import config.KiroCredentials
+import com.github.hank9999.kirokt.config.AppConfig
+import com.github.hank9999.kirokt.config.KiroCredentials
 import java.security.MessageDigest
 
 /**

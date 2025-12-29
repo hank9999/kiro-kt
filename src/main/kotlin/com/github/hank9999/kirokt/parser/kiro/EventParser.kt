@@ -1,17 +1,17 @@
-package model.kiro.events.parser
+package com.github.hank9999.kirokt.parser.kiro
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-import model.kiro.events.model.AssistantResponseEvent
-import model.kiro.events.model.ContextUsageEvent
-import model.kiro.events.model.Event
-import model.kiro.events.model.EventType
-import model.kiro.events.model.SessionEndEvent
-import model.kiro.events.model.SessionStartEvent
-import model.kiro.events.model.ToolCallErrorEvent
-import model.kiro.events.model.ToolCallRequestEvent
-import model.kiro.events.model.ToolUseEvent
+import com.github.hank9999.kirokt.model.kiro.AssistantResponseEvent
+import com.github.hank9999.kirokt.model.kiro.ContextUsageEvent
+import com.github.hank9999.kirokt.model.kiro.Event
+import com.github.hank9999.kirokt.model.kiro.EventType
+import com.github.hank9999.kirokt.model.kiro.SessionEndEvent
+import com.github.hank9999.kirokt.model.kiro.SessionStartEvent
+import com.github.hank9999.kirokt.model.kiro.ToolCallErrorEvent
+import com.github.hank9999.kirokt.model.kiro.ToolCallRequestEvent
+import com.github.hank9999.kirokt.model.kiro.ToolUseEvent
 
 /**
  * 事件解析器

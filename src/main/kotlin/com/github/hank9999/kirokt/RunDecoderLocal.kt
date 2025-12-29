@@ -1,7 +1,6 @@
-package model.kiro.events
+package com.github.hank9999.kirokt
 
-import model.kiro.events.model.*
-import model.kiro.events.parser.KiroEventStreamParser
+import com.github.hank9999.kirokt.model.kiro.Event
 import java.util.Base64
 
 /**
@@ -17,7 +16,7 @@ import java.util.Base64
  */
 object RunDecoderLocal {
 
-    private val parser = KiroEventStreamParser()
+    private val parser = com.github.hank9999.kirokt.parser.kiro.KiroEventStreamParser()
 
     // ==================== ANSI 颜色支持 ====================
 
@@ -116,18 +115,17 @@ object RunDecoderLocal {
      * 计算单个字符的显示宽度
      */
     private fun charWidth(ch: Char): Int {
-        return when {
-            // CJK 字符范围
-            ch in '\u4E00'..'\u9FFF' -> 2  // CJK 统一汉字
-            ch in '\u3400'..'\u4DBF' -> 2  // CJK 扩展 A
-            ch in '\uF900'..'\uFAFF' -> 2  // CJK 兼容汉字
-            ch in '\u3000'..'\u303F' -> 2  // CJK 标点符号
-            ch in '\uFF00'..'\uFFEF' -> 2  // 全角字符
-            ch in '\u2E80'..'\u2EFF' -> 2  // CJK 部首补充
-            ch in '\u2F00'..'\u2FDF' -> 2  // 康熙部首
-            ch in '\u3100'..'\u312F' -> 2  // 注音符号
-            ch in '\u31A0'..'\u31BF' -> 2  // 注音符号扩展
-            ch in '\uAC00'..'\uD7AF' -> 2  // 韩文音节
+        return when (ch) { // CJK 字符范围
+            in '\u4E00'..'\u9FFF' -> 2  // CJK 统一汉字
+            in '\u3400'..'\u4DBF' -> 2  // CJK 扩展 A
+            in '\uF900'..'\uFAFF' -> 2  // CJK 兼容汉字
+            in '\u3000'..'\u303F' -> 2  // CJK 标点符号
+            in '\uFF00'..'\uFFEF' -> 2  // 全角字符
+            in '\u2E80'..'\u2EFF' -> 2  // CJK 部首补充
+            in '\u2F00'..'\u2FDF' -> 2  // 康熙部首
+            in '\u3100'..'\u312F' -> 2  // 注音符号
+            in '\u31A0'..'\u31BF' -> 2  // 注音符号扩展
+            in '\uAC00'..'\uD7AF' -> 2  // 韩文音节
             else -> 1
         }
     }
