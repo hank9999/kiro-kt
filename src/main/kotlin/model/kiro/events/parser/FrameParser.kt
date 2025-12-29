@@ -93,6 +93,12 @@ class FrameParser {
         return frames
     }
 
+    private fun resetToAwaitingPrelude() {
+        state = State.AWAITING_PRELUDE
+        totalLength = 0
+        headerLength = 0
+    }
+
     /**
      * 尝试解析一个帧
      *
@@ -100,6 +106,10 @@ class FrameParser {
      */
     private fun tryParseFrame(): Frame? {
         buffer.flip()
+
+        // 若在解析 prelude 阶段发现帧边界可能错位，建议把 position 调到这里做重同步
+        var resyncPosition: Int? = null
+
         try {
             while (true) {
                 when (state) {
@@ -107,6 +117,9 @@ class FrameParser {
                         if (buffer.remaining() < Frame.PRELUDE_LENGTH) return null
 
                         val preludeStart = buffer.position()
+                        // 默认：一旦 prelude 校验失败，先丢 1 byte 再重试（策略可调整）
+                        resyncPosition = preludeStart + 1
+
                         totalLength = buffer.int
                         headerLength = buffer.int
                         val preludeCrc = buffer.int.toLong() and 0xFFFFFFFFL
@@ -124,7 +137,7 @@ class FrameParser {
                         val savedPos = buffer.position()
                         buffer.position(preludeStart)
                         buffer.get(preludeData)
-                        buffer.position(savedPos) // 回到读完 prelude 的位置（preludeStart+12）
+                        buffer.position(savedPos)
 
                         val computedPreludeCrc = Crc32.compute(preludeData)
                         if (computedPreludeCrc != preludeCrc) {
@@ -132,8 +145,9 @@ class FrameParser {
                             throw ParseException("Prelude CRC mismatch: expected $preludeCrc, got $computedPreludeCrc")
                         }
 
+                        // Prelude 通过校验：进入 DATA，且不需要 resync
+                        resyncPosition = null
                         state = State.AWAITING_DATA
-                        // 关键：继续 while，让同一次调用直接进入 AWAITING_DATA
                         continue
                     }
 
@@ -141,9 +155,19 @@ class FrameParser {
                         val remainingLength = totalLength - Frame.PRELUDE_LENGTH
                         if (buffer.remaining() < remainingLength) return null
 
-                        val messageStart = buffer.position() - Frame.PRELUDE_LENGTH // 此时 position 已在 prelude 后面，所以 >= 0
-                        val messageData = ByteArray(totalLength - Frame.MESSAGE_CRC_LENGTH)
+                        val messageStart = buffer.position() - Frame.PRELUDE_LENGTH
+                        if (messageStart < 0) {
+                            // 防御：避免状态错乱导致 ByteBuffer.position(-12) 这种硬异常
+                            errorCount++
+                            throw ParseException(
+                                "Parser state desync: messageStart=$messageStart, pos=${buffer.position()}, totalLength=$totalLength"
+                            )
+                        }
 
+                        // DATA 阶段出错通常说明这一整帧坏了：默认丢掉已读过的这段（保持 resyncPosition = null）
+                        resyncPosition = null
+
+                        val messageData = ByteArray(totalLength - Frame.MESSAGE_CRC_LENGTH)
                         val savedPosition = buffer.position()
                         buffer.position(messageStart)
                         buffer.get(messageData)
@@ -168,20 +192,29 @@ class FrameParser {
                             Headers.EMPTY
                         }
 
-                        state = State.AWAITING_PRELUDE
-                        totalLength = 0
-                        headerLength = 0
-
+                        resetToAwaitingPrelude()
                         return Frame(headers, payload)
                     }
 
                     State.COMPLETE -> return null
                 }
             }
+        } catch (e: ParseException) {
+            // 关键修复：任何 ParseException 都把状态机回退到“等待新帧起点”，避免残留长度字段污染后续解析
+            resetToAwaitingPrelude()
+
+            // 可选重同步：仅在 prelude 阶段失败时丢 1 byte（resyncPosition != null）
+            resyncPosition?.let { pos ->
+                val safePos = pos.coerceIn(0, buffer.limit())
+                buffer.position(safePos)
+            }
+
+            throw e
         } finally {
             buffer.compact()
         }
     }
+
 
 
     /**
