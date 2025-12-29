@@ -1,0 +1,21 @@
+package com.github.hank9999.kirokt.plugins
+
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.plugins.contentnegotiation.*
+import kotlinx.serialization.json.Json
+
+/**
+ * 配置 JSON 序列化
+ */
+fun Application.configureSerialization() {
+    install(ContentNegotiation) {
+        json(Json {
+            prettyPrint = false
+            isLenient = true
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+            explicitNulls = false
+        })
+    }
+}
