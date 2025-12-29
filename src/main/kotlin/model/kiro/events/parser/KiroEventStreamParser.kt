@@ -1,6 +1,6 @@
 package model.kiro.events.parser
 
-import model.kiro.events.Event
+import model.kiro.events.model.Event
 import java.io.InputStream
 
 /**

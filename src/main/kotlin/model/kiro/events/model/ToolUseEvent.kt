@@ -1,6 +1,5 @@
-package model.kiro.events
+package model.kiro.events.model
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
