@@ -36,7 +36,7 @@ fun Route.anthropicRoutes() {
             if (modelId == null) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("model_id is required")
+                    ErrorResponse.invalidRequest("缺少模型 ID")
                 )
                 return@get
             }
@@ -45,7 +45,7 @@ fun Route.anthropicRoutes() {
             if (model == null) {
                 call.respond(
                     HttpStatusCode.NotFound,
-                    ErrorResponse.notFound("Model '$modelId' not found")
+                    ErrorResponse.notFound("模型 '$modelId' 未找到")
                 )
                 return@get
             }
@@ -60,7 +60,7 @@ fun Route.anthropicRoutes() {
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("Invalid request body: ${e.message}")
+                    ErrorResponse.invalidRequest("无效的请求体: ${e.message}")
                 )
                 return@post
             }
@@ -69,7 +69,7 @@ fun Route.anthropicRoutes() {
             if (!Claude45Models.isValidModel(request.model)) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("Invalid com.github.hank9999.model: ${request.model}")
+                    ErrorResponse.invalidRequest("无效的模型: ${request.model}")
                 )
                 return@post
             }
@@ -78,7 +78,7 @@ fun Route.anthropicRoutes() {
             if (request.maxTokens <= 0) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("max_tokens must be greater than 0")
+                    ErrorResponse.invalidRequest("max_tokens 必须大于 0")
                 )
                 return@post
             }
@@ -87,7 +87,7 @@ fun Route.anthropicRoutes() {
             if (request.messages.isEmpty()) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("messages array is required and cannot be empty")
+                    ErrorResponse.invalidRequest("messages 数组是必需的且不能为空")
                 )
                 return@post
             }
@@ -107,7 +107,7 @@ fun Route.anthropicRoutes() {
             } catch (e: Exception) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("Invalid request body: ${e.message}")
+                    ErrorResponse.invalidRequest("无效的请求体: ${e.message}")
                 )
                 return@post
             }
@@ -116,7 +116,7 @@ fun Route.anthropicRoutes() {
             if (!Claude45Models.isValidModel(request.model)) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("Invalid com.github.hank9999.model: ${request.model}")
+                    ErrorResponse.invalidRequest("无效的模型: ${request.model}")
                 )
                 return@post
             }
@@ -125,7 +125,7 @@ fun Route.anthropicRoutes() {
             if (request.messages.isEmpty()) {
                 call.respond(
                     HttpStatusCode.BadRequest,
-                    ErrorResponse.invalidRequest("messages array is required and cannot be empty")
+                    ErrorResponse.invalidRequest("messages 数组是必需的且不能为空")
                 )
                 return@post
             }
