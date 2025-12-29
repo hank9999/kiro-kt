@@ -37,3 +37,7 @@ out/
 /.idea
 /AGENTS.md
 /CLAUDE.md
+
+### Configuration Files ###
+config.json
+credentials.json

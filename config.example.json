@@ -1,0 +1,10 @@
+{
+    "host": "127.0.0.1",
+    "port": 8991,
+    "apiKey": "your-api-key",
+    "region": "us-east-1",
+    "kiroVersion": "0.8.0",
+    "machineId": null,
+    "systemVersion": "darwin#24.6.0",
+    "nodeVersion": "22.21.1"
+}
