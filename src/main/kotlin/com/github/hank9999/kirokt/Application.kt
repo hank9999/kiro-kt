@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory
 
 private lateinit var appConfig: AppConfig
 private lateinit var credentials: KiroCredentials
+private lateinit var credentialsPath: String
 
 fun main(args: Array<String>) {
     val logger = LoggerFactory.getLogger("com.github.hank9999.kirokt.Application")
@@ -31,7 +32,7 @@ fun main(args: Array<String>) {
     // 加载配置
     try {
         appConfig = ConfigLoader.loadAppConfig(cliArgs.configPath)
-        credentials = ConfigLoader.loadCredentials(cliArgs.credentialsPath)
+        credentialsPath = cliArgs.credentialsPath
     } catch (e: Exception) {
         logger.error("配置加载失败: ${e.message}")
         kotlin.system.exitProcess(1)
@@ -46,7 +47,7 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    configureKoin(appConfig, credentials)
+    configureKoin(appConfig, credentialsPath)
     configureSerialization()
     configureSSE()
     configureRouting()

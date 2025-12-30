@@ -33,6 +33,11 @@ dependencies {
     implementation("io.ktor:ktor-server-compression")
     implementation("io.ktor:ktor-server-netty")
 
+    // Ktor Client
+    implementation("io.ktor:ktor-client-core")
+    implementation("io.ktor:ktor-client-java")
+    implementation("io.ktor:ktor-client-content-negotiation")
+
     // PostgreSQL + Exposed
     implementation("org.jetbrains.exposed:exposed-core:${exposedVersion}")
     implementation("org.jetbrains.exposed:exposed-jdbc:${exposedVersion}")

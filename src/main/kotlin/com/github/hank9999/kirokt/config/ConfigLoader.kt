@@ -1,6 +1,7 @@
 package com.github.hank9999.kirokt.config
 
-import kotlinx.serialization.json.Json
+import com.github.hank9999.kirokt.utils.JsonConfig
+import kotlinx.serialization.encodeToString
 import org.slf4j.LoggerFactory
 import java.io.File
 
@@ -9,12 +10,7 @@ import java.io.File
  */
 object ConfigLoader {
     private val logger = LoggerFactory.getLogger(ConfigLoader::class.java)
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-        encodeDefaults = true
-    }
+    private val json = JsonConfig.default
 
     /**
      * 加载应用配置
@@ -55,6 +51,21 @@ object ConfigLoader {
             json.decodeFromString<KiroCredentials>(content)
         } catch (e: Exception) {
             throw ConfigException("解析凭据文件失败: $path", e)
+        }
+    }
+
+    /**
+     * 保存凭据配置
+     */
+    fun saveCredentials(path: String, credentials: KiroCredentials) {
+        val file = File(path)
+
+        try {
+            val content = json.encodeToString(credentials)
+            file.writeText(content)
+            logger.info("保存凭据文件: $path")
+        } catch (e: Exception) {
+            throw ConfigException("保存凭据文件失败: $path", e)
         }
     }
 }
