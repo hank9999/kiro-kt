@@ -27,7 +27,7 @@ fun appModule(
             }
         }
     }
-    single { TokenManager(appConfig, credentialsPath, get()) }
+    single(createdAtStart = true) { TokenManager(appConfig, credentialsPath, get()) }
 }
 
 /**

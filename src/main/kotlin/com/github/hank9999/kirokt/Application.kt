@@ -14,7 +14,6 @@ import io.ktor.server.netty.*
 import org.slf4j.LoggerFactory
 
 private lateinit var appConfig: AppConfig
-private lateinit var credentials: KiroCredentials
 private lateinit var credentialsPath: String
 
 fun main(args: Array<String>) {
@@ -32,6 +31,8 @@ fun main(args: Array<String>) {
     // 加载配置
     try {
         appConfig = ConfigLoader.loadAppConfig(cliArgs.configPath)
+        // 预检查凭据文件
+        ConfigLoader.loadCredentials(cliArgs.credentialsPath)
         credentialsPath = cliArgs.credentialsPath
     } catch (e: Exception) {
         logger.error("配置加载失败: ${e.message}")
