@@ -1,4 +1,4 @@
-package com.github.hank9999.kirokt.parser.kiro
+package com.github.hank9999.kirokt.kiro.parser
 
 import java.util.zip.CRC32
 

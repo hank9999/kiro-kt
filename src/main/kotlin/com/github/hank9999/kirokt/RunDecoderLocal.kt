@@ -1,6 +1,7 @@
 package com.github.hank9999.kirokt
 
-import com.github.hank9999.kirokt.model.kiro.Event
+import com.github.hank9999.kirokt.kiro.parser.KiroEventStreamParser
+import com.github.hank9999.kirokt.kiro.model.Event
 import java.util.Base64
 
 /**
@@ -16,7 +17,7 @@ import java.util.Base64
  */
 object RunDecoderLocal {
 
-    private val parser = com.github.hank9999.kirokt.parser.kiro.KiroEventStreamParser()
+    private val parser = KiroEventStreamParser()
 
     // ==================== ANSI 颜色支持 ====================
 

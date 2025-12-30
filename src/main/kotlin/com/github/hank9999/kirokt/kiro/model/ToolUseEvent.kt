@@ -1,4 +1,4 @@
-package com.github.hank9999.kirokt.model.kiro
+package com.github.hank9999.kirokt.kiro.model
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement

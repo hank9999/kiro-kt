@@ -1,6 +1,6 @@
-package com.github.hank9999.kirokt.parser.kiro
+package com.github.hank9999.kirokt.kiro.parser
 
-import com.github.hank9999.kirokt.model.kiro.Event
+import com.github.hank9999.kirokt.kiro.model.Event
 import java.io.InputStream
 
 /**

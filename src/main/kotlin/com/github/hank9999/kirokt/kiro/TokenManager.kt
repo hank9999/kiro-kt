@@ -3,8 +3,8 @@ package com.github.hank9999.kirokt.kiro
 import com.github.hank9999.kirokt.config.AppConfig
 import com.github.hank9999.kirokt.config.ConfigLoader
 import com.github.hank9999.kirokt.config.KiroCredentials
-import com.github.hank9999.kirokt.model.kiro.RefreshRequest
-import com.github.hank9999.kirokt.model.kiro.RefreshResponse
+import com.github.hank9999.kirokt.kiro.model.RefreshRequest
+import com.github.hank9999.kirokt.kiro.model.RefreshResponse
 import com.github.hank9999.kirokt.utils.MachineIdGenerator
 import io.ktor.client.*
 import io.ktor.client.call.*

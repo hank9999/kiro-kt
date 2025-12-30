@@ -1,4 +1,4 @@
-package com.github.hank9999.kirokt.model.anthropic
+package com.github.hank9999.kirokt.anthropic.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
