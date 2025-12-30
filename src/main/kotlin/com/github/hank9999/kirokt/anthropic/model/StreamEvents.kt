@@ -25,12 +25,11 @@ enum class StreamEventType {
 
 /**
  * 流式事件 - 多态类型
+ * 注意: type 字段由 @SerialName 和 @JsonClassDiscriminator 自动处理
  */
 @Serializable
 @JsonClassDiscriminator("type")
-sealed interface StreamEvent {
-    val type: String
-}
+sealed interface StreamEvent
 
 /**
  * 消息开始事件
@@ -38,7 +37,6 @@ sealed interface StreamEvent {
 @Serializable
 @SerialName("message_start")
 data class MessageStartEvent(
-    override val type: String = "message_start",
     val message: MessagesResponse
 ) : StreamEvent
 
@@ -48,7 +46,6 @@ data class MessageStartEvent(
 @Serializable
 @SerialName("content_block_start")
 data class ContentBlockStartEvent(
-    override val type: String = "content_block_start",
     val index: Int,
     @SerialName("content_block")
     val contentBlock: ContentBlock
@@ -60,7 +57,6 @@ data class ContentBlockStartEvent(
 @Serializable
 @SerialName("content_block_delta")
 data class ContentBlockDeltaEvent(
-    override val type: String = "content_block_delta",
     val index: Int,
     val delta: Delta
 ) : StreamEvent
@@ -71,7 +67,6 @@ data class ContentBlockDeltaEvent(
 @Serializable
 @SerialName("content_block_stop")
 data class ContentBlockStopEvent(
-    override val type: String = "content_block_stop",
     val index: Int
 ) : StreamEvent
 
@@ -92,7 +87,6 @@ data class MessageDeltaData(
 @Serializable
 @SerialName("message_delta")
 data class MessageDeltaEvent(
-    override val type: String = "message_delta",
     val delta: MessageDeltaData,
     val usage: Usage? = null
 ) : StreamEvent
@@ -102,18 +96,14 @@ data class MessageDeltaEvent(
  */
 @Serializable
 @SerialName("message_stop")
-data class MessageStopEvent(
-    override val type: String = "message_stop"
-) : StreamEvent
+data object MessageStopEvent : StreamEvent
 
 /**
  * Ping 事件
  */
 @Serializable
 @SerialName("ping")
-data class PingEvent(
-    override val type: String = "ping"
-) : StreamEvent
+data object PingEvent : StreamEvent
 
 /**
  * 错误事件
@@ -121,7 +111,6 @@ data class PingEvent(
 @Serializable
 @SerialName("error")
 data class StreamErrorEvent(
-    override val type: String = "error",
     val error: ApiError
 ) : StreamEvent
 
@@ -129,12 +118,11 @@ data class StreamErrorEvent(
 
 /**
  * Delta 增量 - 多态类型
+ * 注意: type 字段由 @SerialName 和 @JsonClassDiscriminator 自动处理
  */
 @Serializable
 @JsonClassDiscriminator("type")
-sealed interface Delta {
-    val type: String
-}
+sealed interface Delta
 
 /**
  * 文本增量
@@ -142,7 +130,6 @@ sealed interface Delta {
 @Serializable
 @SerialName("text_delta")
 data class TextDelta(
-    override val type: String = "text_delta",
     val text: String
 ) : Delta
 
@@ -152,7 +139,6 @@ data class TextDelta(
 @Serializable
 @SerialName("input_json_delta")
 data class InputJsonDelta(
-    override val type: String = "input_json_delta",
     @SerialName("partial_json")
     val partialJson: String
 ) : Delta
@@ -163,7 +149,6 @@ data class InputJsonDelta(
 @Serializable
 @SerialName("thinking_delta")
 data class ThinkingDelta(
-    override val type: String = "thinking_delta",
     val thinking: String
 ) : Delta
 
@@ -173,6 +158,5 @@ data class ThinkingDelta(
 @Serializable
 @SerialName("signature_delta")
 data class SignatureDelta(
-    override val type: String = "signature_delta",
     val signature: String
 ) : Delta

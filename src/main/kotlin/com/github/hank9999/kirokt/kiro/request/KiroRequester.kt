@@ -6,7 +6,10 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import org.slf4j.LoggerFactory
 import java.util.UUID
+
+private val logger = LoggerFactory.getLogger("KiroRequester")
 
 /**
  * Kiro API Requester
@@ -42,6 +45,9 @@ class KiroRequester(
         val token = tokenManager.ensureValidToken()
         val url = baseUrl()
 
+        logger.debug("发送请求到 Kiro API: {}", url)
+        logger.debug("请求体: {}", requestBody)
+
         val response = httpClient.post(url) {
             buildHeaders(token)
             setBody(requestBody)
@@ -53,6 +59,8 @@ class KiroRequester(
             } catch (e: Exception) {
                 ""
             }
+            logger.error("Kiro API 请求失败: {} {}", response.status, bodyText)
+            logger.error("失败的请求体: {}", requestBody)
             throw KiroRequestException("API 请求失败: ${response.status} $bodyText")
         }
 

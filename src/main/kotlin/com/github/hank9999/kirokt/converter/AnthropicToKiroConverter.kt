@@ -200,27 +200,23 @@ object AnthropicToKiroConverter {
                 Role.ASSISTANT -> {
                     val (content, toolUses) = extractAssistantContent(message)
 
-                    history.add(HistoryEntry(
-                        assistantResponseMessage = HistoryAssistantResponseMessage(
-                            content = content,
-                            toolUses = toolUses
-                        )
-                    ))
-
-                    // 检查前一条是否是用户消息
+                    // 在添加 assistant 消息之前，检查前一条是否是用户消息
+                    // 如果不是，需要先补充一个空的用户消息
                     if (history.isEmpty() || history.last().userInputMessage == null) {
-                        // 需要在前面补充一个空的用户消息
-                        val lastEntry = history.removeLastOrNull()
                         history.add(HistoryEntry(
                             userInputMessage = HistoryUserInputMessage(
                                 content = "",
                                 modelId = modelId
                             )
                         ))
-                        if (lastEntry != null) {
-                            history.add(lastEntry)
-                        }
                     }
+
+                    history.add(HistoryEntry(
+                        assistantResponseMessage = HistoryAssistantResponseMessage(
+                            content = content,
+                            toolUses = toolUses
+                        )
+                    ))
                 }
             }
             i++

@@ -2,25 +2,51 @@
 
 package com.github.hank9999.kirokt.anthropic.model
 
+import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonClassDiscriminator
+import kotlinx.serialization.json.JsonContentPolymorphicSerializer
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 // ============ Tool 定义 ============
 
 /**
+ * Tool 多态序列化器
+ * 根据 JSON 结构判断具体类型：
+ * - 有 type 字段：根据 type 值判断
+ * - 无 type 字段但有 input_schema：CustomTool
+ */
+object ToolSerializer : JsonContentPolymorphicSerializer<Tool>(Tool::class) {
+    override fun selectDeserializer(element: JsonElement): DeserializationStrategy<Tool> {
+        val jsonObj = element.jsonObject
+        val type = jsonObj["type"]?.jsonPrimitive?.content
+
+        return when (type) {
+            "bash_20250124" -> BashTool.serializer()
+            "text_editor_20250124" -> TextEditorTool20250124.serializer()
+            "text_editor_20250429" -> TextEditorTool20250429.serializer()
+            "text_editor_20250728" -> TextEditorTool20250728.serializer()
+            "web_search_20250305" -> WebSearchTool.serializer()
+            // 没有 type 字段或 type 是 custom/function，都视为自定义工具
+            else -> CustomTool.serializer()
+        }
+    }
+}
+
+/**
  * 工具定义 - 多态类型
  */
-@Serializable
-@JsonClassDiscriminator("type")
+@Serializable(with = ToolSerializer::class)
 sealed interface Tool
 
 /**
  * 自定义工具
  */
 @Serializable
-@SerialName("custom")
 data class CustomTool(
     val name: String,
     val description: String? = null,

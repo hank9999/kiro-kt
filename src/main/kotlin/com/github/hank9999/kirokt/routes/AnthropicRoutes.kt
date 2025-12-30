@@ -15,6 +15,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.*
+import io.ktor.util.cio.ChannelWriteException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -75,9 +76,14 @@ fun Route.anthropicRoutes() {
 
         // POST /v1/messages - 创建消息
         post("/messages") {
+            // 读取原始请求体用于日志
+            val rawBody = call.receiveText()
+            logger.debug("收到 /v1/messages 请求, 原始请求体: {}", rawBody)
+
             val request = try {
-                call.receive<MessagesRequest>()
+                json.decodeFromString<MessagesRequest>(rawBody)
             } catch (e: Exception) {
+                logger.error("解析请求体失败, 原始请求体: {}", rawBody, e)
                 call.respond(
                     HttpStatusCode.BadRequest,
                     ErrorResponse.invalidRequest("无效的请求体: ${e.message}")
@@ -122,9 +128,14 @@ fun Route.anthropicRoutes() {
 
         // POST /v1/messages/count_tokens - 计算 token 数量
         post("/messages/count_tokens") {
+            // 读取原始请求体用于日志
+            val rawBody = call.receiveText()
+            logger.debug("收到 /v1/messages/count_tokens 请求, 原始请求体: {}", rawBody)
+
             val request = try {
-                call.receive<CountTokensRequest>()
+                json.decodeFromString<CountTokensRequest>(rawBody)
             } catch (e: Exception) {
+                logger.error("解析 count_tokens 请求体失败, 原始请求体: {}", rawBody, e)
                 call.respond(
                     HttpStatusCode.BadRequest,
                     ErrorResponse.invalidRequest("无效的请求体: ${e.message}")
@@ -331,7 +342,21 @@ private suspend fun handleStreamingResponse(
             }
         }
 
+    } catch (e: ChannelWriteException) {
+        // 客户端断开连接，这是正常情况（用户取消请求等）
+        logger.debug("客户端断开连接: {}", e.message)
+    } catch (e: ClosedWriteChannelException) {
+        // 写入通道已关闭，同样是客户端断开
+        logger.debug("写入通道已关闭: {}", e.message)
     } catch (e: Exception) {
+        // 检查是否是客户端断开导致的异常
+        if (e.cause is ChannelWriteException || e.cause is ClosedWriteChannelException ||
+            e.message?.contains("Broken pipe") == true ||
+            e.message?.contains("Cannot write to channel") == true) {
+            logger.debug("客户端断开连接: {}", e.message)
+            return
+        }
+
         logger.error("处理流式请求失败", e)
 
         // 对于流式请求，尝试发送错误事件
@@ -346,7 +371,7 @@ private suspend fun handleStreamingResponse(
             }
         } catch (e2: Exception) {
             // 如果已经开始写入响应，可能无法发送错误
-            logger.error("无法发送错误事件", e2)
+            logger.debug("无法发送错误事件: {}", e2.message)
         }
     }
 }

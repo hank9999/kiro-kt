@@ -288,8 +288,7 @@ class KiroToAnthropicConverter(
         sseEvents.add(formatSSEEvent("message_delta", json.encodeToString(MessageDeltaEvent.serializer(), messageDeltaEvent)))
 
         // message_stop 事件
-        val messageStopEvent = MessageStopEvent()
-        sseEvents.add(formatSSEEvent("message_stop", json.encodeToString(MessageStopEvent.serializer(), messageStopEvent)))
+        sseEvents.add(formatSSEEvent("message_stop", json.encodeToString(MessageStopEvent.serializer(), MessageStopEvent)))
 
         return sseEvents
     }
