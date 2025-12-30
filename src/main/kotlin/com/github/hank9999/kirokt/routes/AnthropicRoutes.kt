@@ -7,6 +7,7 @@ import com.github.hank9999.kirokt.kiro.model.Event as KiroEvent
 import com.github.hank9999.kirokt.kiro.model.KiroRequest
 import com.github.hank9999.kirokt.kiro.parser.KiroEventStreamParser
 import com.github.hank9999.kirokt.kiro.request.KiroRequester
+import com.github.hank9999.kirokt.utils.TokenEstimator
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -15,6 +16,12 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.koin.ktor.ext.inject
 import org.slf4j.LoggerFactory
 import java.util.UUID
@@ -143,12 +150,11 @@ fun Route.anthropicRoutes() {
                 return@post
             }
 
-            // TODO: 实际的 token 计数逻辑
-            // 这里返回一个占位响应，实际实现需要对接后端服务
+            // 计算 token 数量
+            val inputTokens = countTokensForRequest(request)
+
             val response = CountTokensResponse(
-                inputTokens = 0,
-                cacheCreationInputTokens = 0,
-                cacheReadInputTokens = 0
+                inputTokens = inputTokens
             )
 
             call.respond(response)
@@ -346,4 +352,90 @@ private suspend fun handleStreamingResponse(
             logger.error("无法发送错误事件", e2)
         }
     }
+}
+
+/**
+ * 计算 CountTokensRequest 的 token 数量
+ */
+private fun countTokensForRequest(request: CountTokensRequest): Int {
+    var total = 0L
+
+    // 1. 系统消息
+    request.system?.let { system ->
+        when (system) {
+            is JsonPrimitive -> {
+                if (system.isString) {
+                    total += TokenEstimator.countTokens(system.content)
+                }
+            }
+            is JsonArray -> {
+                for (block in system.jsonArray) {
+                    if (block is JsonObject) {
+                        block["text"]?.jsonPrimitive?.content?.let { text ->
+                            total += TokenEstimator.countTokens(text)
+                        }
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+
+    // 2. 用户消息
+    for (message in request.messages) {
+        val content = message.content
+        when (content) {
+            is JsonPrimitive -> {
+                if (content.isString) {
+                    total += TokenEstimator.countTokens(content.content)
+                }
+            }
+            is JsonArray -> {
+                for (item in content.jsonArray) {
+                    if (item is JsonObject) {
+                        // 文本内容
+                        item["text"]?.jsonPrimitive?.content?.let { text ->
+                            total += TokenEstimator.countTokens(text)
+                        }
+                        // 图片内容 - 计算 Base64 数据长度
+                        item["source"]?.jsonObject?.get("data")?.jsonPrimitive?.content?.let { data ->
+                            total += TokenEstimator.countTokens(data)
+                        }
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+
+    // 3. 工具定义
+    request.tools?.forEach { tool ->
+        when (tool) {
+            is CustomTool -> {
+                total += TokenEstimator.countTokens(tool.name)
+                tool.description?.let { desc ->
+                    total += TokenEstimator.countTokens(desc)
+                }
+                val inputSchemaJson = json.encodeToString(InputSchema.serializer(), tool.inputSchema)
+                total += TokenEstimator.countTokens(inputSchemaJson)
+            }
+            is BashTool -> {
+                total += TokenEstimator.countTokens(tool.name)
+            }
+            is TextEditorTool20250124 -> {
+                total += TokenEstimator.countTokens(tool.name)
+            }
+            is TextEditorTool20250429 -> {
+                total += TokenEstimator.countTokens(tool.name)
+            }
+            is TextEditorTool20250728 -> {
+                total += TokenEstimator.countTokens(tool.name)
+            }
+            is WebSearchTool -> {
+                total += TokenEstimator.countTokens(tool.name)
+            }
+        }
+    }
+
+    return total.coerceAtLeast(1).toInt()
 }
