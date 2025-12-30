@@ -336,9 +336,6 @@ private suspend fun handleStreamingResponse(
 
         // 对于流式请求，尝试发送错误事件
         try {
-            call.response.header(HttpHeaders.CacheControl, "no-cache")
-            call.response.header(HttpHeaders.Connection, "keep-alive")
-
             call.respondTextWriter(contentType = ContentType.Text.EventStream) {
                 val errorEvent = StreamErrorEvent(
                     error = ApiError.apiError("处理请求失败: ${e.message}")
