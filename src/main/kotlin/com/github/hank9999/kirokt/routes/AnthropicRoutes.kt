@@ -210,7 +210,14 @@ private suspend fun handleNonStreamingResponse(
                             }
                         }
                         is KiroEvent.ContextUsage -> {
-                            // 可以从这里获取更准确的 token 计数
+                            // 从上下文使用百分比计算实际的 input_tokens
+                            // 公式: percentage * 200000 / 100 = percentage * 2000
+                            inputTokens = (event.data.contextUsagePercentage * 200_000 / 100.0).toInt()
+                            logger.debug(
+                                "收到 contextUsageEvent: {}%, 计算 input_tokens: {}",
+                                event.data.contextUsagePercentage,
+                                inputTokens
+                            )
                         }
                         else -> { /* 忽略其他事件 */ }
                     }
@@ -225,9 +232,6 @@ private suspend fun handleNonStreamingResponse(
         }
         content.addAll(toolUseBlocks)
 
-        // 估算 token 数量
-        outputTokens = (contentBuilder.length / 4).coerceAtLeast(1)
-
         val messageId = "msg_${UUID.randomUUID().toString().replace("-", "").take(24)}"
         val messagesResponse = MessagesResponse(
             id = messageId,
@@ -239,7 +243,7 @@ private suspend fun handleNonStreamingResponse(
             stopSequence = null,
             usage = Usage(
                 inputTokens = inputTokens,
-                outputTokens = outputTokens
+                outputTokens = 1
             )
         )
 

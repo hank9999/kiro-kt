@@ -36,9 +36,10 @@ class KiroToAnthropicConverter(
     private var currentToolName: String? = null
     private var toolInputBuffer = StringBuilder()
 
-    // 输入/输出 token 计数 (从 contextUsageEvent 获取或估算)
+    // 输入/输出 token 计数 (从 contextUsageEvent 获取)
     private var inputTokens = 0
-    private var outputTokens = 0
+    // output_tokens 固定为 1
+    private val outputTokens = 1
 
     companion object {
         fun generateMessageId(): String {
@@ -82,8 +83,9 @@ class KiroToAnthropicConverter(
                 sseEvents.addAll(processToolUse(event.data))
             }
             is KiroEvent.ContextUsage -> {
-                // 可以用于更新 token 计数
-                // 这里暂时忽略，因为 Anthropic 在 message_delta 中提供 usage
+                // 从上下文使用百分比计算实际的 input_tokens
+                // 公式: percentage * 200000 / 100 = percentage * 2000
+                inputTokens = (event.data.contextUsagePercentage * 200_000 / 100.0).toInt()
             }
             is KiroEvent.SessionEnd -> {
                 sseEvents.addAll(generateMessageEnd(StopReason.END_TURN))
@@ -121,7 +123,6 @@ class KiroToAnthropicConverter(
 
         // 发送文本增量
         if (event.content.isNotEmpty()) {
-            outputTokens += estimateTokens(event.content)
             sseEvents.add(generateTextDelta(event.content))
         }
 
@@ -311,13 +312,5 @@ class KiroToAnthropicConverter(
      */
     private fun formatSSEEvent(event: String, data: String): String {
         return "event: $event\ndata: $data\n\n"
-    }
-
-    /**
-     * 估算 token 数量 (简单估算)
-     */
-    private fun estimateTokens(text: String): Int {
-        // 简单估算：平均每4个字符约1个token
-        return (text.length / 4).coerceAtLeast(1)
     }
 }
