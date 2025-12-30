@@ -1,13 +1,22 @@
 package com.github.hank9999.kirokt.routes
 
 import com.github.hank9999.kirokt.anthropic.model.*
+import com.github.hank9999.kirokt.converter.AnthropicToKiroConverter
+import com.github.hank9999.kirokt.converter.KiroToAnthropicConverter
+import com.github.hank9999.kirokt.kiro.model.Event as KiroEvent
+import com.github.hank9999.kirokt.kiro.model.KiroRequest
+import com.github.hank9999.kirokt.kiro.parser.KiroEventStreamParser
+import com.github.hank9999.kirokt.kiro.request.KiroRequester
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.delay
+import io.ktor.utils.io.*
 import kotlinx.serialization.json.Json
+import org.koin.ktor.ext.inject
+import org.slf4j.LoggerFactory
 import java.util.UUID
 
 /**
@@ -20,10 +29,14 @@ private val json = Json {
     explicitNulls = false
 }
 
+private val logger = LoggerFactory.getLogger("AnthropicRoutes")
+
 /**
  * Anthropic API 路由
  */
 fun Route.anthropicRoutes() {
+    val kiroRequester: KiroRequester by inject()
+
     route("/v1") {
         // GET /v1/models - 获取模型列表
         get("/models") {
@@ -94,9 +107,9 @@ fun Route.anthropicRoutes() {
 
             // 判断是否为流式请求
             if (request.stream == true) {
-                handleStreamingResponse(call, request)
+                handleStreamingResponse(call, request, kiroRequester)
             } else {
-                handleNonStreamingResponse(call, request)
+                handleNonStreamingResponse(call, request, kiroRequester)
             }
         }
 
@@ -146,91 +159,187 @@ fun Route.anthropicRoutes() {
 /**
  * 处理非流式响应
  */
-private suspend fun handleNonStreamingResponse(call: ApplicationCall, request: MessagesRequest) {
-    val messageId = "msg_${UUID.randomUUID().toString().replace("-", "").take(24)}"
+private suspend fun handleNonStreamingResponse(
+    call: ApplicationCall,
+    request: MessagesRequest,
+    kiroRequester: KiroRequester
+) {
+    try {
+        // 1. 转换请求
+        val kiroRequest = AnthropicToKiroConverter.convert(request)
+        val kiroRequestJson = json.encodeToString(KiroRequest.serializer(), kiroRequest)
 
-    // TODO: 实际的消息处理逻辑
-    // 这里返回一个占位响应，实际实现需要对接后端服务
-    val response = MessagesResponse(
-        id = messageId,
-        type = "message",
-        role = "assistant",
-        model = request.model,
-        content = listOf(
-            TextBlock(text = "This is a placeholder response. Backend integration pending.")
-        ),
-        stopReason = StopReason.END_TURN,
-        stopSequence = null,
-        usage = Usage(
-            inputTokens = 0,
-            outputTokens = 0
+        logger.debug("Kiro request: {}", kiroRequestJson)
+
+        // 2. 发送请求到 Kiro
+        val response = kiroRequester.callApiStream(kiroRequestJson)
+
+        // 3. 解析响应并聚合内容
+        val parser = KiroEventStreamParser()
+        val contentBuilder = StringBuilder()
+        val toolUseBlocks = mutableListOf<ContentBlock>()
+        var stopReason: StopReason = StopReason.END_TURN
+        var inputTokens = 0
+        var outputTokens = 0
+
+        response.bodyAsChannel().let { channel ->
+            val buffer = ByteArray(8192)
+            while (!channel.isClosedForRead) {
+                val bytesRead = channel.readAvailable(buffer)
+                if (bytesRead <= 0) break
+
+                val events = parser.parse(buffer, 0, bytesRead)
+                for (event in events) {
+                    when (event) {
+                        is KiroEvent.AssistantResponse -> {
+                            contentBuilder.append(event.data.content)
+                            if (event.data.isCompleted) {
+                                stopReason = StopReason.END_TURN
+                            }
+                        }
+                        is KiroEvent.ToolUse -> {
+                            if (event.data.isCompleted) {
+                                // 构建工具使用块
+                                val input = event.data.input ?: kotlinx.serialization.json.JsonObject(emptyMap())
+                                toolUseBlocks.add(ToolUseBlock(
+                                    id = event.data.toolUseId,
+                                    name = event.data.name,
+                                    input = input
+                                ))
+                                stopReason = StopReason.TOOL_USE
+                            }
+                        }
+                        is KiroEvent.ContextUsage -> {
+                            // 可以从这里获取更准确的 token 计数
+                        }
+                        else -> { /* 忽略其他事件 */ }
+                    }
+                }
+            }
+        }
+
+        // 4. 构建响应
+        val content = mutableListOf<ContentBlock>()
+        if (contentBuilder.isNotEmpty()) {
+            content.add(TextBlock(text = contentBuilder.toString()))
+        }
+        content.addAll(toolUseBlocks)
+
+        // 估算 token 数量
+        outputTokens = (contentBuilder.length / 4).coerceAtLeast(1)
+
+        val messageId = "msg_${UUID.randomUUID().toString().replace("-", "").take(24)}"
+        val messagesResponse = MessagesResponse(
+            id = messageId,
+            type = "message",
+            role = "assistant",
+            model = request.model,
+            content = content,
+            stopReason = stopReason,
+            stopSequence = null,
+            usage = Usage(
+                inputTokens = inputTokens,
+                outputTokens = outputTokens
+            )
         )
-    )
 
-    call.respond(response)
+        call.respond(messagesResponse)
+
+    } catch (e: Exception) {
+        logger.error("处理非流式请求失败", e)
+        call.respond(
+            HttpStatusCode.InternalServerError,
+            ErrorResponse.apiError("处理请求失败: ${e.message}")
+        )
+    }
 }
 
 /**
  * 处理流式响应 (SSE)
- * 使用 respondTextWriter 手动发送 SSE 格式的响应
  */
-private suspend fun handleStreamingResponse(call: ApplicationCall, request: MessagesRequest) {
-    val messageId = "msg_${UUID.randomUUID().toString().replace("-", "").take(24)}"
+private suspend fun handleStreamingResponse(
+    call: ApplicationCall,
+    request: MessagesRequest,
+    kiroRequester: KiroRequester
+) {
+    try {
+        // 1. 转换请求
+        val kiroRequest = AnthropicToKiroConverter.convert(request)
+        val kiroRequestJson = json.encodeToString(KiroRequest.serializer(), kiroRequest)
 
-    call.response.header(HttpHeaders.CacheControl, "no-cache")
-    call.response.header(HttpHeaders.Connection, "keep-alive")
+        logger.debug("Kiro request (streaming): {}", kiroRequestJson)
 
-    call.respondTextWriter(contentType = ContentType.Text.EventStream) {
-        // 辅助函数：发送 SSE 事件
-        suspend fun sendEvent(event: String, data: String) {
-            write("event: $event\n")
-            write("data: $data\n\n")
-            flush()
+        // 2. 发送请求到 Kiro
+        val response = kiroRequester.callApiStream(kiroRequestJson)
+
+        // 3. 设置 SSE 响应头
+        call.response.header(HttpHeaders.CacheControl, "no-cache")
+        call.response.header(HttpHeaders.Connection, "keep-alive")
+
+        // 4. 创建转换器
+        val converter = KiroToAnthropicConverter(model = request.model)
+
+        // 5. 流式处理响应
+        call.respondTextWriter(contentType = ContentType.Text.EventStream) {
+            val parser = KiroEventStreamParser()
+
+            response.bodyAsChannel().let { channel ->
+                val buffer = ByteArray(8192)
+                var messageStarted = false
+
+                while (!channel.isClosedForRead) {
+                    val bytesRead = channel.readAvailable(buffer)
+                    if (bytesRead <= 0) break
+
+                    val events = parser.parse(buffer, 0, bytesRead)
+
+                    for (event in events) {
+                        // 确保 message_start 已发送
+                        if (!messageStarted) {
+                            write(converter.generateMessageStart())
+                            flush()
+                            messageStarted = true
+                        }
+
+                        // 转换并发送事件
+                        val sseEvents = converter.processEvent(event)
+                        for (sseEvent in sseEvents) {
+                            write(sseEvent)
+                            flush()
+                        }
+                    }
+                }
+
+                // 如果还没发送过消息开始，发送空响应
+                if (!messageStarted) {
+                    write(converter.generateMessageStart())
+                    flush()
+                }
+
+                // 确保消息结束事件已发送
+                // (processEvent 应该已经处理了，但作为保险)
+            }
         }
 
-        // 1. message_start 事件
-        val messageStartEvent = MessageStartEvent(
-            message = MessagesResponse(
-                id = messageId,
-                model = request.model,
-                content = emptyList(),
-                stopReason = null,
-                usage = Usage(inputTokens = 0, outputTokens = 1)
-            )
-        )
-        sendEvent("message_start", json.encodeToString(messageStartEvent))
+    } catch (e: Exception) {
+        logger.error("处理流式请求失败", e)
 
-        // 2. content_block_start 事件
-        val contentBlockStartEvent = ContentBlockStartEvent(
-            index = 0,
-            contentBlock = TextBlock(text = "")
-        )
-        sendEvent("content_block_start", json.encodeToString(contentBlockStartEvent))
+        // 对于流式请求，尝试发送错误事件
+        try {
+            call.response.header(HttpHeaders.CacheControl, "no-cache")
+            call.response.header(HttpHeaders.Connection, "keep-alive")
 
-        // 3. content_block_delta 事件 - TODO: 实际的流式内容
-        val placeholderText = "This is a placeholder streaming response. Backend integration pending."
-        for (char in placeholderText) {
-            val deltaEvent = ContentBlockDeltaEvent(
-                index = 0,
-                delta = TextDelta(text = char.toString())
-            )
-            sendEvent("content_block_delta", json.encodeToString(deltaEvent))
-            delay(10) // 模拟流式输出延迟
+            call.respondTextWriter(contentType = ContentType.Text.EventStream) {
+                val errorEvent = StreamErrorEvent(
+                    error = ApiError.apiError("处理请求失败: ${e.message}")
+                )
+                write("event: error\n")
+                write("data: ${json.encodeToString(StreamErrorEvent.serializer(), errorEvent)}\n\n")
+                flush()
+            }
+        } catch (e2: Exception) {
+            // 如果已经开始写入响应，可能无法发送错误
+            logger.error("无法发送错误事件", e2)
         }
-
-        // 4. content_block_stop 事件
-        val contentBlockStopEvent = ContentBlockStopEvent(index = 0)
-        sendEvent("content_block_stop", json.encodeToString(contentBlockStopEvent))
-
-        // 5. message_delta 事件
-        val messageDeltaEvent = MessageDeltaEvent(
-            delta = MessageDeltaData(stopReason = StopReason.END_TURN),
-            usage = Usage(inputTokens = 0, outputTokens = placeholderText.length)
-        )
-        sendEvent("message_delta", json.encodeToString(messageDeltaEvent))
-
-        // 6. message_stop 事件
-        val messageStopEvent = MessageStopEvent()
-        sendEvent("message_stop", json.encodeToString(messageStopEvent))
     }
 }
