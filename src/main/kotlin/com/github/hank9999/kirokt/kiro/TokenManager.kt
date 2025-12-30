@@ -135,7 +135,7 @@ class TokenManager(
             header(HttpHeaders.ContentType, ContentType.Application.Json)
             header(HttpHeaders.UserAgent, "KiroIDE-$kiroVersion-$machineId")
             header(HttpHeaders.AcceptEncoding, "gzip, compress, deflate, br")
-            header(HttpHeaders.Host, refreshDomain)
+            header("host", refreshDomain)
             header(HttpHeaders.Connection, "close")
             setBody(RefreshRequest(refreshToken))
         }
